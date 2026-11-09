@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <meta name="description" content="Application de gestion d'inventaire et de suivi du matériel.">
+  <title>Inventaire — Gestion du matériel</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="login-screen" class="login-screen hidden">
+    <div class="login-card">
+      <div class="brand brand-large"><span class="brand-mark">I</span><span>inventaire<small>GESTION DU MATÉRIEL</small></span></div>
+      <div class="eyebrow">ESPACE DE GESTION</div>
+      <h1>Tout votre matériel,<br><em>au même endroit.</em></h1>
+      <p class="muted">Connectez-vous pour consulter et gérer l'inventaire partagé.</p>
+      <button id="google-login" class="btn google-btn"><span class="google-g">G</span> Continuer avec Google</button>
+      <p class="login-note">Accès réservé aux personnes autorisées par l'administrateur.</p>
+      <p id="login-error" class="error-text"></p>
+    </div>
+    <div class="login-art"><div class="art-card"><span>APERÇU DE L'INVENTAIRE</span><div class="art-line w80"></div><div class="art-line w55"></div><div class="art-stats"><i></i><i></i><i></i></div></div></div>
+  </div>
+
+  <div id="app-shell" class="shell hidden">
+    <aside class="sidebar">
+      <a class="brand" href="#" data-page="dashboard"><span class="brand-mark">I</span><span>inventaire<small>GESTION DU MATÉRIEL</small></span></a>
+      <nav>
+        <button class="nav-link active" data-page="dashboard">▦ <span>Vue d'ensemble</span></button>
+        <button class="nav-link" data-page="inventory">▤ <span>Matériel</span></button>
+        <button class="nav-link editor-only hidden" data-action="new-item">＋ <span>Ajouter un matériel</span></button>
+        <button class="nav-link admin-only hidden" data-page="categories">◈ <span>Catégories</span></button>
+        <button class="nav-link admin-only hidden" data-page="users">♙ <span>Utilisateurs</span></button>
+      </nav>
+      <div class="side-bottom">
+        <div class="user-mini"><img id="user-avatar" alt="" class="avatar hidden"><span id="user-initial" class="avatar avatar-fallback">?</span><div><b id="user-name">Utilisateur</b><small id="user-role">Lecteur</small></div></div>
+        <button id="logout" class="logout">Déconnexion ↗</button>
+      </div>
+    </aside>
+    <main class="main">
+      <div id="toast-region" aria-live="polite"></div>
+      <section id="page-dashboard" class="page">
+        <header class="topbar"><div><div class="eyebrow">ESPACE DE TRAVAIL</div><h1>Vue d'ensemble</h1><p class="muted">Retrouvez et suivez l'ensemble de vos équipements.</p></div><button class="btn primary editor-only hidden" data-action="new-item">＋ Ajouter un matériel</button></header>
+        <div class="stats">
+          <article class="stat"><span>Références matériel</span><strong id="stat-items">—</strong><small>Fiches enregistrées</small></article>
+          <article class="stat"><span>Unités au total</span><strong id="stat-quantity">—</strong><small>Quantité cumulée</small></article>
+          <article class="stat"><span>À réparer</span><strong id="stat-repair">—</strong><small>Équipements à surveiller</small></article>
+          <article class="stat"><span>Garanties expirées</span><strong id="stat-warranty">—</strong><small>À vérifier</small></article>
+        </div>
+        <section class="panel"><div class="panel-head"><div><h2>Derniers matériels modifiés</h2><p class="muted small">Les dernières fiches mises à jour.</p></div><button class="btn ghost" data-page="inventory">Voir tout →</button></div><div id="recent-list" class="recent-list"><div class="loading">Chargement…</div></div></section>
+      </section>
+
+      <section id="page-inventory" class="page hidden">
+        <header class="topbar"><div><div class="eyebrow">GESTION DU PARC</div><h1>Matériel</h1><p class="muted">Consultez, recherchez et filtrez vos équipements.</p></div><button class="btn primary editor-only hidden" data-action="new-item">＋ Ajouter un matériel</button></header>
+        <section class="panel"><div class="filters"><input id="search-input" placeholder="Rechercher un matériel, une référence…"><select id="filter-category"><option value="">Toutes les catégories</option></select><select id="filter-condition"><option value="">Tous les états</option><option>Neuf</option><option>Bon état</option><option>État moyen</option><option>À réparer</option><option>Hors service</option></select></div><div id="inventory-grid" class="inventory-grid"></div></section>
+      </section>
+
+      <section id="page-categories" class="page hidden">
+        <header class="topbar"><div><div class="eyebrow">CONFIGURATION</div><h1>Catégories</h1><p class="muted">Organisez votre inventaire comme vous le souhaitez.</p></div></header>
+        <div class="two-col"><section class="panel"><h2>Nouvelle catégorie</h2><form id="category-form" class="stack"><label>Nom<input name="name" required placeholder="Ex. Matériel événementiel"></label><label>Couleur<input name="color" type="color" value="#6c9cf4"></label><button class="btn primary">Créer la catégorie</button></form></section><section class="panel"><h2>Catégories existantes</h2><div id="category-list"></div></section></div>
+      </section>
+
+      <section id="page-users" class="page hidden">
+        <header class="topbar"><div><div class="eyebrow">ADMINISTRATION</div><h1>Utilisateurs</h1><p class="muted">Les comptes Google doivent être autorisés avant d'accéder aux données.</p></div></header>
+        <section class="panel"><div class="table-wrap"><table><thead><tr><th>Utilisateur</th><th>Rôle</th><th>Accès</th><th>Action</th></tr></thead><tbody id="users-table"></tbody></table></div></section>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="equipment-dialog" class="modal"><form id="equipment-form" class="modal-content" enctype="multipart/form-data">
+    <div class="modal-head"><div><div class="eyebrow">FICHE MATÉRIEL</div><h2 id="equipment-modal-title">Ajouter un matériel</h2></div><button type="button" class="icon-btn" data-close="equipment-dialog">×</button></div>
+    <input type="hidden" name="id">
+    <div class="form-section"><h3>Informations générales</h3><div class="form-grid">
+      <label class="span2">Nom du matériel *<input name="name" required placeholder="Ex. MacBook Pro 14 pouces"></label>
+      <label>Référence interne<input name="reference"></label><label>Catégorie<select name="category_id" id="form-category"><option value="">Sans catégorie</option></select></label>
+      <label>Marque<input name="brand"></label><label>Modèle<input name="model"></label>
+      <label>Numéro de série<input name="serial_number"></label><label>Quantité<input name="quantity" type="number" min="0" value="1"></label>
+      <label>État<select name="condition"><option>Neuf</option><option selected>Bon état</option><option>État moyen</option><option>À réparer</option><option>Hors service</option></select></label>
+      <label class="span2">Description<textarea name="description" rows="3"></textarea></label>
+    </div></div>
+    <div class="form-section"><h3>Achat et localisation</h3><div class="form-grid">
+      <label>Emplacement<input name="location" placeholder="Ex. Salle informatique"></label><label>Fournisseur<input name="supplier"></label>
+      <label>Date d'achat<input name="purchase_date" type="date"></label><label>Prix d'achat (€)<input name="purchase_price" type="number" min="0" step="0.01"></label>
+      <label>Fin de garantie<input name="warranty_until" type="date"></label>
+    </div></div>
+    <div class="form-section"><h3>Photos du matériel</h3><p class="muted small">JPG, PNG ou WebP. Plusieurs photos possibles.</p><div id="existing-photos" class="photo-strip"></div><label class="upload-zone">＋ <b>Choisir des photos</b><span>Ajoutez des vues générales ou des détails d'état</span><input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label></div>
+    <div class="modal-actions"><button type="button" class="btn ghost" data-close="equipment-dialog">Annuler</button><button class="btn primary">Enregistrer</button></div>
+  </form></dialog>
+
+  <dialog id="detail-dialog" class="modal"><div class="modal-content detail-modal"><div class="modal-head"><div><div class="eyebrow">FICHE MATÉRIEL</div><h2 id="detail-title">Matériel</h2></div><button class="icon-btn" data-close="detail-dialog">×</button></div><div id="detail-content"></div></div></dialog>
+  <dialog id="confirm-dialog" class="modal small-modal"><div class="modal-content"><h2>Confirmer la suppression</h2><p class="muted">Cette action est définitive. Le matériel et ses photos seront supprimés.</p><div class="modal-actions"><button class="btn ghost" data-close="confirm-dialog">Annuler</button><button id="confirm-delete" class="btn danger">Supprimer</button></div></div></dialog>
+</body></html>
